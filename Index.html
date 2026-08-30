@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+
+<meta name="description" content="PULSEPAD Controller Diagnostic Lab — test gamepad buttons, sticks, triggers, performance, diagnostics, and input response directly in your browser.">
+<meta name="keywords" content="PULSEPAD, controller diagnostic, gamepad tester, controller tester, gamepad diagnostic, joystick tester, controller test">
+<meta name="author" content="PULSEPAD">
+<meta name="robots" content="index, follow">
+
+<title>PULSEPAD // Controller Diagnostic Lab</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Share+Tech+Mono&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body data-theme="dark">
+
+<!-- Scanline / grid ambient background -->
+<div class="bg-grid" aria-hidden="true"></div>
+<div class="bg-scan" aria-hidden="true"></div>
+
+<div class="app" id="app">
+
+  <!-- ============ HUD HEADER ============ -->
+  <header class="hud-bar">
+    <div class="hud-brand">
+      <span class="brand-mark" aria-hidden="true">◈</span>
+      <div class="brand-text">
+        <h1>PULSEPAD</h1>
+        <span class="brand-sub">Controller Diagnostic Lab</span>
+      </div>
+    </div>
+
+    <div class="hud-status" id="hudStatus">
+      <span class="status-dot" id="statusDot"></span>
+      <span id="statusLabel">No controller detected</span>
+    </div>
+
+    <div class="hud-controls">
+      <label class="ctrl-select-wrap" id="ctrlSelectWrap" hidden>
+        <span class="ctrl-select-label">GAMEPAD</span>
+        <select id="controllerSelect" aria-label="Select connected controller"></select>
+      </label>
+      <button class="icon-btn" id="btnRefresh" title="Refresh controllers" aria-label="Refresh controllers">⟳</button>
+      <button class="icon-btn" id="btnTheme" title="Toggle appearance" aria-label="Toggle light / dark">☾</button>
+      <button class="icon-btn" id="btnFullscreen" title="Fullscreen" aria-label="Toggle fullscreen">⛶</button>
+    </div>
+  </header>
+
+  <!-- ============ NO CONTROLLER STATE ============ -->
+  <section class="empty-state" id="emptyState">
+    <div class="empty-card">
+      <div class="empty-icon" aria-hidden="true">
+        <svg viewBox="0 0 120 80" width="140" height="94">
+          <defs>
+            <linearGradient id="padGrad" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0%" stop-color="var(--accent)"/>
+              <stop offset="100%" stop-color="var(--accent-2)"/>
+            </linearGradient>
+          </defs>
+          <path d="M25 25 Q10 25 8 45 Q6 65 20 68 Q32 70 38 55 L82 55 Q88 70 100 68 Q114 65 112 45 Q110 25 95 25 Q80 15 60 15 Q40 15 25 25 Z"
+                fill="none" stroke="url(#padGrad)" stroke-width="2.5" opacity="0.85"/>
+          <circle cx="30" cy="42" r="8" fill="none" stroke="var(--accent)" stroke-width="1.6" opacity="0.6"/>
+          <circle cx="90" cy="42" r="8" fill="none" stroke="var(--accent-2)" stroke-width="1.6" opacity="0.6"/>
+          <line x1="27" y1="42" x2="33" y2="42" stroke="var(--accent)" stroke-width="1.6"/>
+          <line x1="30" y1="39" x2="30" y2="45" stroke="var(--accent)" stroke-width="1.6"/>
+        </svg>
+      </div>
+      <h2>Awaiting Signal</h2>
+      <p>Connect a controller and press any button to wake it up. Your browser only exposes a gamepad to a page after the first input.</p>
+      <ol class="empty-steps">
+        <li><span>01</span> Plug in or pair your controller (USB / Bluetooth)</li>
+        <li><span>02</span> Press any button or move a stick</li>
+        <li><span>03</span> This lab will detect it automatically — no install needed</li>
+      </ol>
+      <div class="empty-meta">
+        <span id="apiSupport">Checking Gamepad API support…</span>
+      </div>
+      <button class="ghost-btn" id="btnKeyboardFallback">Use keyboard fallback tester instead</button>
+    </div>
+  </section>
+
+  <main class="dashboard" id="dashboard" hidden>
+
+    <nav class="tabs" id="tabs">
+      <button class="tab active" data-tab="overview">Overview</button>
+      <button class="tab" data-tab="buttons">Buttons</button>
+      <button class="tab" data-tab="sticks">Sticks</button>
+      <button class="tab" data-tab="triggers">Triggers</button>
+      <button class="tab" data-tab="monitor">Monitor</button>
+      <button class="tab" data-tab="performance">Performance</button>
+      <button class="tab" data-tab="diagnostics">Diagnostics</button>
+      <button class="tab" data-tab="recorder">Recorder</button>
+    </nav>
+
+    <section class="panel-view active" id="view-overview">
+      <div class="grid grid-info">
+        <div class="glass-panel info-card">
+          <h3>Controller Identity</h3>
+          <dl class="kv" id="infoIdentity"></dl>
+        </div>
+        <div class="glass-panel info-card">
+          <h3>Capabilities</h3>
+          <dl class="kv" id="infoCapabilities"></dl>
+        </div>
+        <div class="glass-panel info-card">
+          <h3>Session</h3>
+          <dl class="kv" id="infoSession"></dl>
+        </div>
+      </div>
+
+      <div class="glass-panel controller-viz-panel">
+        <h3>Live Visualization</h3>
+        <div class="controller-viz" id="controllerViz"></div>
+      </div>
+    </section>
+
+    <section class="panel-view" id="view-buttons">
+      <div class="glass-panel">
+        <div class="panel-head">
+          <h3>Button Tester</h3>
+          <button class="mini-btn" id="btnResetButtons">Reset counts</button>
+        </div>
+        <p class="hint">Every detected button lights up on press. Layout adapts to however many buttons your controller reports.</p>
+        <div class="button-grid" id="buttonGrid"></div>
+      </div>
+    </section>
+
+    <section class="panel-view" id="view-sticks">
+      <div class="grid grid-sticks">
+        <div class="glass-panel stick-panel">
+          <div class="panel-head">
+            <h3>Left Stick</h3>
+            <label class="toggle"><input type="checkbox" id="driftToggleL"><span>Drift test</span></label>
+          </div>
+          <canvas class="stick-canvas" id="stickCanvasL" width="280" height="280"></canvas>
+          <dl class="kv kv-tight" id="stickInfoL"></dl>
+        </div>
+        <div class="glass-panel stick-panel">
+          <div class="panel-head">
+            <h3>Right Stick</h3>
+            <label class="toggle"><input type="checkbox" id="driftToggleR"><span>Drift test</span></label>
+          </div>
+          <canvas class="stick-canvas" id="stickCanvasR" width="280" height="280"></canvas>
+          <dl class="kv kv-tight" id="stickInfoR"></dl>
+        </div>
+      </div>
+      <div class="glass-panel">
+        <h3>Movement History</h3>
+        <canvas class="graph-canvas" id="stickGraph" width="900" height="160"></canvas>
+      </div>
+    </section>
+
+    <section class="panel-view" id="view-triggers">
+      <div class="grid grid-triggers">
+        <div class="glass-panel trigger-panel">
+          <h3>L2 / LT</h3>
+          <div class="trigger-meter"><div class="trigger-fill" id="fillL2"></div><span class="trigger-pct" id="pctL2">0%</span></div>
+          <dl class="kv kv-tight" id="infoL2"></dl>
+        </div>
+        <div class="glass-panel trigger-panel">
+          <h3>R2 / RT</h3>
+          <div class="trigger-meter"><div class="trigger-fill" id="fillR2"></div><span class="trigger-pct" id="pctR2">0%</span></div>
+          <dl class="kv kv-tight" id="infoR2"></dl>
+        </div>
+      </div>
+      <div class="glass-panel">
+        <h3>Trigger Response Graph</h3>
+        <canvas class="graph-canvas" id="triggerGraph" width="900" height="160"></canvas>
+      </div>
+    </section>
+
+    <section class="panel-view" id="view-monitor">
+      <div class="grid grid-monitor-stats">
+        <div class="glass-panel stat-card"><span class="stat-label">Total Inputs</span><span class="stat-value" id="statTotalInputs">0</span></div>
+        <div class="glass-panel stat-card"><span class="stat-label">Poll Rate</span><span class="stat-value" id="statPollRate">— Hz</span></div>
+        <div class="glass-panel stat-card"><span class="stat-label">Last Input</span><span class="stat-value" id="statLastInput">—</span></div>
+        <div class="glass-panel stat-card"><span class="stat-label">Est. Response</span><span class="stat-value" id="statResponse">— ms</span></div>
+      </div>
+      <div class="glass-panel">
+        <div class="panel-head">
+          <h3>Live Event Feed</h3>
+          <button class="mini-btn" id="btnClearFeed">Clear</button>
+        </div>
+        <div class="event-feed" id="eventFeed"></div>
+      </div>
+    </section>
+
+    <section class="panel-view" id="view-performance">
+      <div class="glass-panel">
+        <div class="panel-head">
+          <h3>Performance Test</h3>
+          <button class="mini-btn primary" id="btnRunPerf">Run test (5s)</button>
+        </div>
+        <p class="hint">Measures approximate polling rate, input latency and connection stability from inside the browser. These numbers are estimates — actual hardware latency depends on your OS, driver and display, and can't be measured precisely from JavaScript.</p>
+        <div class="grid grid-perf" id="perfResults">
+          <div class="perf-stat"><span>Polling rate</span><strong id="perfPolling">—</strong></div>
+          <div class="perf-stat"><span>Avg. frame latency</span><strong id="perfLatency">—</strong></div>
+          <div class="perf-stat"><span>Input consistency</span><strong id="perfConsistency">—</strong></div>
+          <div class="perf-stat"><span>Connection stability</span><strong id="perfStability">—</strong></div>
+        </div>
+        <div class="progress-track" id="perfProgress" hidden><div class="progress-fill" id="perfProgressFill"></div></div>
+      </div>
+    </section>
+
+    <section class="panel-view" id="view-diagnostics">
+      <div class="glass-panel diagnostics-panel">
+        <div class="panel-head">
+          <h3>Controller Health Check</h3>
+          <button class="mini-btn primary" id="btnRunDiagnostics">Run diagnostics</button>
+        </div>
+        <div class="health-score" id="healthScore">
+          <svg viewBox="0 0 140 140" class="health-ring">
+            <circle cx="70" cy="70" r="60" class="ring-track"/>
+            <circle cx="70" cy="70" r="60" class="ring-fill" id="ringFill"/>
+          </svg>
+          <div class="health-score-text">
+            <strong id="healthNumber">—</strong>
+            <span>/ 100</span>
+          </div>
+        </div>
+        <ul class="check-list" id="checkList"></ul>
+      </div>
+    </section>
+
+    <section class="panel-view" id="view-recorder">
+      <div class="glass-panel">
+        <div class="panel-head">
+          <h3>Input Recorder</h3>
+          <div class="btn-row">
+            <button class="mini-btn primary" id="btnRecStart">● Start Recording</button>
+            <button class="mini-btn" id="btnRecStop" disabled>■ Stop</button>
+            <button class="mini-btn" id="btnRecClear">Clear</button>
+            <button class="mini-btn" id="btnExportReport">⤓ Export Report</button>
+          </div>
+        </div>
+        <p class="hint" id="recStatus">Not recording. Press Start to capture button, axis and trigger events with timestamps.</p>
+        <div class="event-feed" id="recordFeed"></div>
+      </div>
+    </section>
+
+  </main>
+
+  <div class="modal-backdrop" id="kbModalBackdrop" hidden>
+    <div class="glass-panel modal" role="dialog" aria-label="Keyboard fallback tester">
+      <div class="panel-head">
+        <h3>Keyboard Fallback Tester</h3>
+        <button class="icon-btn" id="btnCloseKb" aria-label="Close">✕</button>
+      </div>
+      <p class="hint">No gamepad? Test raw key events instead — useful for checking your keyboard while you wait for a controller.</p>
+      <div class="kb-display" id="kbDisplay">Press any key…</div>
+      <div class="kb-log" id="kbLog"></div>
+    </div>
+  </div>
+
+  <footer class="app-footer">
+    <span>All processing happens locally in your browser. No input data leaves this device.</span>
+    <span class="footer-actions">
+      <button class="text-link" id="btnResetAll">Reset all tests</button>
+    </span>
+  </footer>
+
+</div>
+
+<script src="script.js"></script>
+</body>
+</html>
